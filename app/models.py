@@ -16,6 +16,11 @@ class AppInfo(BaseModel):
     version: str = "0.0.1"
 
 
+class ErrorResponse(BaseModel):
+    success: bool = False
+    message: str
+
+
 class SMAWindow(enum.IntEnum):
     seven = 7
     twenty_five = 25

@@ -2,23 +2,29 @@ import asyncio
 import json
 import logging
 
+import uvicorn
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.app_ctx import AppCtx
-from app.models import AppInfo, ClosePrice, DataNotReady, SMAResult, SMAWindow
-
+from app.models import AppInfo, ClosePrice, DataNotReady, ErrorResponse, SMAResult, SMAWindow
+from app.settings import settings
 
 app = FastAPI()
 
+responses = {
+    status.HTTP_503_SERVICE_UNAVAILABLE: {'description': 'Service not ready', 'model': ErrorResponse},
+}
 
 @app.get('/', response_model=AppInfo)
 def root() -> dict:
+    """Root endpoint, app info"""
     return {}
 
 
-@app.get('/sma', response_model=SMAResult)
+@app.get('/sma', response_model=SMAResult, responses=responses, tags=['SMA'])
 def get_sma(periods: SMAWindow) -> dict:
+    """Get SMA value for specified number of periods"""
     return {'periods': periods, 'sma_value': ClosePrice.get_sma(periods)}
 
 
@@ -38,12 +44,16 @@ async def receive_close_prices() -> None:
             logging.error(f'Failed to save close price: {ex}')
 
 
-@app.on_event("startup")
+@app.on_event('startup')
 async def start() -> None:
     await AppCtx.start()
     asyncio.create_task(receive_close_prices())
 
 
-@app.on_event("shutdown")
+@app.on_event('shutdown')
 async def stop() -> None:
     await AppCtx.stop()
+
+
+if __name__ == '__main__':
+    uvicorn.run(app=app, host=settings.APP_HOST, port=settings.APP_PORT)
